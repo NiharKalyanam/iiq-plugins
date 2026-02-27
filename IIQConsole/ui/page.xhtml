@@ -1,0 +1,372 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml"
+      xmlns:h="http://java.sun.com/jsf/html">
+
+<h:head>
+  <title>IIQ Console</title>
+
+  <link rel="stylesheet" type="text/css"
+        href="#{request.contextPath}/plugins/IIQConsolePlugin/ui/css/console.css"/>
+</h:head>
+
+<body>
+
+<div id="iiq-console-wrapper">
+
+  <div id="console-header">
+    <div id="console-title">
+      <span class="console-icon">⌨</span>
+      <span>IIQ Console</span>
+      <span id="console-version-badge">Plugin v1.0</span>
+    </div>
+
+    <div id="console-controls">
+      <span id="conn-status" class="status-dot status-connecting" title="Checking connection...">●</span>
+      <span id="conn-label">Connecting...</span>
+
+      <button class="ctrl-btn" type="button" onclick="IIQConsole.clearScreen()">⌫ Clear</button>
+      <button class="ctrl-btn" type="button" onclick="IIQConsole.showHelp()">? Help</button>
+    </div>
+  </div>
+
+  <div id="console-main">
+    <div id="terminal-panel">
+
+      <div id="terminal-output" tabindex="0">
+        <div class="output-line system-msg">╔══════════════════════════════════════════════════════════╗</div>
+        <div class="output-line system-msg">║        IIQ Console Plugin v1.0 — IdentityIQ              ║</div>
+        <div class="output-line system-msg">╚══════════════════════════════════════════════════════════╝</div>
+        <div class="output-line system-msg">Type 'help' to see all commands. Use ↑↓ for history.</div>
+        <div class="output-line system-msg">─────────────────────────────────────────────────────────</div>
+      </div>
+
+      <div id="input-row">
+        <span class="prompt-label">iiq<span class="prompt-gt">&gt;</span></span>
+
+        <textarea id="console-input" class="console-input-field console-textarea"
+          placeholder="Enter command (e.g. list Identity, get Rule MyRule). Use Shift+Enter for new line."
+          autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+          rows="3"></textarea>
+
+        <button id="run-btn" type="button" onclick="IIQConsole.runCommand()">Run ↵</button>
+      </div>
+
+      <!-- Optional small loader text; -->
+      <div id="console-loader" class="hidden" style="padding:6px 0; font-size:12px;">
+        Running...
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+//<![CDATA[
+var IIQConsole = (function () {
+  'use strict';
+
+  // ---------------------------
+  // State
+  // ---------------------------
+  var history = [];
+  var histIdx = -1;
+  var isRunning = false;
+
+  // ---------------------------
+  // Helpers (match your working plugin style)
+  // ---------------------------
+  function getCsrfToken() {
+    if (window.PluginHelper && typeof PluginHelper.getCsrfToken === "function") {
+      return PluginHelper.getCsrfToken();
+    }
+    // fallback (sometimes cookie name differs)
+    var m = document.cookie.match(/XSRF-TOKEN=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+
+  // Build REST URL the correct IIQ way
+  // Resource is @Path("/iiqconsole"), so the rest URL segment is "iiqconsole"
+  function restUrl(path) {
+    // PluginHelper.getPluginRestUrl("iiqconsole") -> /identityiq/plugin/rest/iiqconsole
+    var base = (window.PluginHelper && typeof PluginHelper.getPluginRestUrl === "function")
+      ? PluginHelper.getPluginRestUrl("iiqconsole")
+      : ("#{request.contextPath}/plugin/rest/iiqconsole");
+
+    if (!path) return base;
+    if (path.charAt(0) !== "/") path = "/" + path;
+    return base + path;
+  }
+
+  function jsonHeaders() {
+    var h = {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    };
+    var token = getCsrfToken();
+    if (token) h["X-XSRF-TOKEN"] = token;
+    return h;
+  }
+
+  function getHeaders() {
+    var h = { "Accept": "application/json" };
+    var token = getCsrfToken();
+    if (token) h["X-XSRF-TOKEN"] = token;
+    return h;
+  }
+
+  async function parseJsonOrText(res) {
+    var text = await res.text();
+    var data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (e) {
+      data = { raw: text };
+    }
+    if (!res.ok) {
+      // try common fields first; fall back to raw text
+      var msg = (data && (data.error || data.message || data.output)) ? (data.error || data.message || data.output)
+              : (text || ("HTTP " + res.status));
+      throw new Error(msg);
+    }
+    return data;
+  }
+
+  function appendOutput(cssClass, text) {
+    var output = document.getElementById('terminal-output');
+    var div = document.createElement('div');
+    div.className = 'output-line ' + cssClass;
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = text;
+    output.appendChild(div);
+    output.scrollTop = output.scrollHeight;
+    return div;
+  }
+
+  function setStatus(state, label) {
+    var dot = document.getElementById('conn-status');
+    var lbl = document.getElementById('conn-label');
+    if (!dot || !lbl) return;
+    dot.className = 'status-dot status-' + state;
+    lbl.textContent = label;
+  }
+
+  function showLoader() {
+    var loader = document.getElementById("console-loader");
+    if (loader) loader.classList.remove("hidden");
+    var btn = document.getElementById("run-btn");
+    if (btn) { btn.disabled = true; btn.textContent = "⏳"; }
+  }
+
+  function hideLoader() {
+    var loader = document.getElementById("console-loader");
+    if (loader) loader.classList.add("hidden");
+    var btn = document.getElementById("run-btn");
+    if (btn) { btn.disabled = false; btn.textContent = "Run ↵"; }
+  }
+
+  // ---------------------------
+  // Init
+  // ---------------------------
+  function init() {
+    var input = document.getElementById('console-input');
+    if (!input) return;
+
+    input.addEventListener('keydown', function (e) {
+
+    	  // Enter = run, Shift+Enter = newline
+    	  if (e.key === 'Enter' && !e.shiftKey) {
+    	    e.preventDefault();
+    	    runCommand();
+    	    return;
+    	  }
+
+    	  // ArrowUp / ArrowDown should work ONLY when caret is on first/last line
+    	  // so multiline editing doesn't break.
+    	  if (e.key === 'ArrowUp') {
+    	    // if caret is NOT on first line, allow normal cursor move
+    	    var pos = input.selectionStart || 0;
+    	    var before = input.value.substring(0, pos);
+    	    if (before.indexOf('\n') !== -1) return;
+    	    e.preventDefault();
+    	    navigateHistory(-1);
+    	    return;
+    	  }
+
+    	  if (e.key === 'ArrowDown') {
+    	    // if caret is NOT on last line, allow normal cursor move
+    	    var pos2 = input.selectionStart || 0;
+    	    var after = input.value.substring(pos2);
+    	    if (after.indexOf('\n') !== -1) return;
+    	    e.preventDefault();
+    	    navigateHistory(1);
+    	    return;
+    	  }
+    	});
+
+    input.focus();
+    pingServer();
+  }
+
+  function pingServer() {
+    fetch(restUrl("/ping"), {
+      method: "GET",
+      credentials: "same-origin",
+      headers: getHeaders()
+    })
+    .then(parseJsonOrText)
+    .then(function (data) {
+      if (data && data.status === "ok") {
+        setStatus("ok", "Connected as: " + (data.user || "unknown"));
+        appendOutput("system-msg", "✓ Connected — Logged in as: " + (data.user || "unknown"));
+      } else {
+        setStatus("error", "Ping failed");
+        appendOutput("error-line", "✗ Ping failed: " + JSON.stringify(data || {}));
+      }
+    })
+    .catch(function (err) {
+      setStatus("error", "Disconnected");
+      appendOutput("error-line", "✗ Could not connect: " + err.message);
+      appendOutput("error-line", "CHECK URL: " + restUrl("/ping"));
+    });
+  }
+
+  // ---------------------------
+  // Actions
+  // ---------------------------
+  function runCommand() {
+    if (isRunning) return;
+
+    var input = document.getElementById('console-input');
+    var cmd = (input && input.value != null) ? input.value.trim() : "";
+    if (!cmd) return;
+
+    appendOutput('cmd-echo', 'iiq> ' + cmd);
+    addToHistory(cmd);
+
+    input.value = '';
+    histIdx = -1;
+
+    executeCommand(cmd);
+  }
+
+  function executeCommand(cmd) {
+    isRunning = true;
+    showLoader();
+
+    fetch(restUrl("/execute"), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: jsonHeaders(),
+      body: JSON.stringify({ command: cmd })
+    })
+    .then(parseJsonOrText)
+    .then(function (data) {
+      var out = (data && (data.output || data.message)) ? (data.output || data.message) : "(no output)";
+      appendOutput((data && data.status === "error") ? "error-line" : "output-line", out);
+    })
+    .catch(function (err) {
+      appendOutput("error-line", "✗ " + err.message);
+      appendOutput("error-line", "CHECK URL: " + restUrl("/execute"));
+    })
+    .finally(function () {
+      isRunning = false;
+      hideLoader();
+      var input = document.getElementById("console-input");
+      if (input) input.focus();
+    });
+  }
+
+  function clearScreen() {
+    var out = document.getElementById('terminal-output');
+    if (!out) return;
+    out.innerHTML = '';
+    appendOutput('system-msg', '── Screen cleared ──');
+  }
+
+  function showHelp() {
+    appendOutput('system-msg', "Commands examples:");
+    appendOutput('system-msg', "  help");
+    appendOutput('system-msg', "  list Rule");
+    appendOutput('system-msg', "  list Identity");
+    appendOutput('system-msg', "  get Rule <name>");
+    appendOutput('system-msg', "  whoami");
+  }
+
+  // ---------------------------
+  // History
+  // ---------------------------
+  function addToHistory(cmd) {
+    if (history.length === 0 || history[history.length - 1] !== cmd) {
+      history.push(cmd);
+      if (history.length > 100) history.shift();
+    }
+  }
+
+  function navigateHistory(dir) {
+    if (history.length === 0) return;
+    var input = document.getElementById('console-input');
+    if (!input) return;
+
+    // histIdx is 0..(len-1) representing how far back from end
+    histIdx = Math.max(-1, Math.min(history.length - 1, histIdx + dir));
+
+    input.value = (histIdx === -1) ? '' : history[history.length - 1 - histIdx];
+
+    setTimeout(function () {
+      input.selectionStart = input.selectionEnd = input.value.length;
+    }, 0);
+  }
+
+  // Auto wire "whoami" command (optional)
+  // If user types whoami, call REST /whoami and print user
+  (function patchWhoamiShortcut(){
+    var originalExecute = executeCommand;
+    executeCommand = function(cmd){
+      if (cmd && cmd.toLowerCase() === "whoami") {
+        isRunning = true;
+        showLoader();
+        fetch(restUrl("/whoami"), {
+          method: "GET",
+          credentials: "same-origin",
+          headers: getHeaders()
+        })
+        .then(parseJsonOrText)
+        .then(function(data){
+          appendOutput("output-line", JSON.stringify(data, null, 2));
+        })
+        .catch(function(err){
+          appendOutput("error-line", "✗ " + err.message);
+        })
+        .finally(function(){
+          isRunning = false;
+          hideLoader();
+        });
+        return;
+      }
+      return originalExecute(cmd);
+    };
+  })();
+
+  // ---------------------------
+  // Boot
+  // ---------------------------
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  return {
+    runCommand: runCommand,
+    clearScreen: clearScreen,
+    showHelp: showHelp
+  };
+})();
+//]]>
+</script>
+
+</body>
+</html>

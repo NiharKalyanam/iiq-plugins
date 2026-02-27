@@ -1,0 +1,614 @@
+/* =========================================================
+   IIQ Console Plugin - Stylesheet (SCOPED)
+   Dark terminal theme inspired by real CLI consoles
+   Author: Nihar Kalyanam
+   IMPORTANT: Scoped to #iiq-console-wrapper so it won't break IIQ UI.
+   ========================================================= */
+
+/* ── SCOPED RESET & BASE ── */
+#iiq-console-wrapper,
+#iiq-console-wrapper * ,
+#iiq-console-wrapper *::before,
+#iiq-console-wrapper *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+/* Do NOT style body globally in IIQ plugins */
+.hidden { display: none !important; }
+
+/* ── WRAPPER ── */
+#iiq-console-wrapper {
+    display: flex;
+    flex-direction: column;
+
+    /* Works inside IIQ layout without freezing the whole page */
+    width: 100%;
+    height: 100%;
+    min-height: 600px;                 /* adjust if you want */
+    max-height: calc(100vh - 60px);    /* keeps it within viewport */
+    overflow: hidden;
+
+    background: #0d0d0d;
+    color: #d4d4d4;
+    font-family: 'Consolas', 'Courier New', 'Lucida Console', monospace;
+    font-size: 13px;
+
+    border: 1px solid #2a2a2a;
+    border-radius: 4px;
+}
+
+/* ── HEADER BAR ── */
+#console-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(90deg, #1a1a2e 0%, #16213e 100%);
+    border-bottom: 2px solid #00b894;
+    padding: 8px 16px;
+    flex-shrink: 0;
+}
+
+#console-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 15px;
+    font-weight: bold;
+    color: #00b894;
+    letter-spacing: 1px;
+}
+
+.console-icon {
+    font-size: 18px;
+}
+
+#console-version-badge {
+    background: #00b89422;
+    border: 1px solid #00b89444;
+    border-radius: 10px;
+    padding: 1px 8px;
+    font-size: 10px;
+    color: #00b894;
+    letter-spacing: 0.5px;
+}
+
+#console-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Connection Status Dot */
+.status-dot {
+    font-size: 14px;
+    transition: color 0.3s;
+}
+.status-connecting { color: #f39c12; }
+.status-ok         { color: #00b894; }
+.status-error      { color: #e74c3c; }
+
+#conn-label {
+    color: #888;
+    font-size: 11px;
+    min-width: 160px;
+}
+
+/* Control Buttons */
+.ctrl-btn {
+    background: #1e1e2e;
+    border: 1px solid #333;
+    border-radius: 4px;
+    color: #aaa;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 4px 10px;
+    transition: all 0.2s;
+}
+.ctrl-btn:hover {
+    background: #2a2a3e;
+    border-color: #00b894;
+    color: #00b894;
+}
+
+/* ── QUICK TOOLBAR ── */
+#quick-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #111122;
+    border-bottom: 1px solid #222;
+    padding: 6px 16px;
+    flex-shrink: 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+}
+
+.toolbar-label {
+    color: #555;
+    font-size: 11px;
+    white-space: nowrap;
+    margin-right: 4px;
+}
+
+.quick-btn {
+    background: #1a1a2e;
+    border: 1px solid #333;
+    border-radius: 3px;
+    color: #7f8fa6;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    padding: 3px 10px;
+    white-space: nowrap;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+.quick-btn:hover {
+    background: #00b89411;
+    border-color: #00b894;
+    color: #00b894;
+}
+
+/* ── MAIN LAYOUT ── */
+#console-main {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0; /* important for flex children scrolling */
+}
+
+/* ── TERMINAL PANEL ── */
+#terminal-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    background: #0d0d0d;
+    overflow: hidden;
+    min-width: 0;
+    min-height: 0;
+}
+
+/* Output area */
+#terminal-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px 16px;
+    font-size: 13px;
+    line-height: 1.6;
+    word-wrap: break-word;
+    scroll-behavior: smooth;
+
+    /* Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #333 #111;
+}
+
+#terminal-output::-webkit-scrollbar {
+    width: 6px;
+}
+#terminal-output::-webkit-scrollbar-track {
+    background: #111;
+}
+#terminal-output::-webkit-scrollbar-thumb {
+    background: #333;
+    border-radius: 3px;
+}
+
+/* Output line types */
+.output-line {
+    margin: 0;
+    padding: 1px 0;
+    white-space: pre-wrap;
+    word-break: break-word; /* safer than break-all */
+}
+
+.system-msg {
+    color: #4a9eff;
+}
+
+.cmd-echo {
+    color: #f39c12;
+    margin-top: 8px;
+    font-weight: bold;
+}
+
+.error-line {
+    color: #e74c3c;
+    background: #e74c3c11;
+    border-left: 3px solid #e74c3c;
+    padding-left: 8px;
+}
+
+.separator-line {
+    border-bottom: 1px solid #1a1a1a;
+    margin: 6px 0;
+    height: 1px;
+}
+
+.loading-line {
+    color: #f39c12;
+    animation: blink 1s step-end infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0.3; }
+}
+
+/* XML Syntax Highlighting */
+.xml-output {
+    color: #d4d4d4;
+    background: #0f1117;
+    border-left: 2px solid #00b89433;
+    padding: 8px 12px;
+    margin: 4px 0;
+    border-radius: 0 4px 4px 0;
+    overflow-x: auto;
+}
+.xml-tag     { color: #569cd6; }
+.xml-attr    { color: #9cdcfe; }
+.xml-val     { color: #ce9178; }
+.xml-bracket { color: #808080; }
+
+/* ── INPUT ROW ── */
+#input-row {
+    display: flex;
+    align-items: center;
+    background: #111;
+    border-top: 1px solid #222;
+    padding: 8px 12px;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.prompt-label {
+    color: #00b894;
+    font-weight: bold;
+    font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.prompt-gt {
+    color: #00ff88;
+}
+
+.console-input-field {
+    flex: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #333;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    padding: 4px 0;
+    transition: border-color 0.2s;
+    min-width: 0;
+}
+
+.console-input-field:focus {
+    border-bottom-color: #00b894;
+}
+
+.console-input-field::placeholder {
+    color: #333;
+}
+
+#run-btn {
+    background: #00b894;
+    border: none;
+    border-radius: 4px;
+    color: #000;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 6px 14px;
+    transition: all 0.2s;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+#run-btn:hover {
+    background: #00d4a8;
+    transform: translateY(-1px);
+}
+
+#run-btn:disabled {
+    background: #333;
+    color: #666;
+    cursor: not-allowed;
+    transform: none;
+}
+
+/* ── HINT BAR ── */
+#hint-bar {
+    background: #0a0a0a;
+    border-top: 1px solid #1a1a1a;
+    color: #333;
+    display: flex;
+    font-size: 10px;
+    gap: 20px;
+    padding: 3px 16px;
+    flex-shrink: 0;
+}
+
+#hint-bar span::before {
+    content: '⌨ ';
+}
+
+/* ── SIDEBAR PANEL (RIGHT) ── */
+#sidebar-panel {
+    width: 280px;
+    background: #0f0f1a;
+    border-left: 1px solid #1e1e2e;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
+
+#sidebar-panel::-webkit-scrollbar {
+    width: 4px;
+}
+#sidebar-panel::-webkit-scrollbar-thumb {
+    background: #222;
+}
+
+/* Sidebar sections */
+.sidebar-section {
+    border-bottom: 1px solid #1a1a2e;
+}
+
+.sidebar-title {
+    background: #13132a;
+    color: #00b894;
+    font-size: 11px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+    padding: 7px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.sidebar-content {
+    padding: 8px 10px;
+}
+
+/* Command reference items */
+.cmd-ref-group {
+    margin-bottom: 10px;
+}
+
+.cmd-ref-header {
+    color: #555;
+    font-size: 10px;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    padding: 0 2px;
+    text-transform: uppercase;
+}
+
+.cmd-ref-item {
+    align-items: center;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    gap: 6px;
+    justify-content: space-between;
+    padding: 3px 6px;
+    transition: background 0.15s;
+}
+
+.cmd-ref-item:hover {
+    background: #1a1a2e;
+}
+
+.cmd-ref-item code {
+    color: #9cdcfe;
+    font-size: 11px;
+    font-family: inherit;
+}
+
+.cmd-ref-item span {
+    color: #555;
+    font-size: 10px;
+    white-space: nowrap;
+}
+
+/* Object type badges */
+.type-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.type-badge {
+    background: #1a1a2e;
+    border: 1px solid #2a2a3e;
+    border-radius: 3px;
+    color: #7f8fa6;
+    cursor: pointer;
+    font-size: 10px;
+    padding: 2px 6px;
+    transition: all 0.15s;
+}
+
+.type-badge:hover {
+    background: #00b89411;
+    border-color: #00b894;
+    color: #00b894;
+}
+
+/* History list */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-item {
+    background: #111;
+    border-radius: 3px;
+    color: #888;
+    cursor: pointer;
+    font-size: 11px;
+    overflow: hidden;
+    padding: 4px 8px;
+    text-overflow: ellipsis;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.history-item:hover {
+    background: #1a1a2e;
+    color: #00b894;
+}
+
+.clear-hist-btn {
+    background: none;
+    border: none;
+    color: #444;
+    cursor: pointer;
+    font-size: 12px;
+    padding: 0;
+    transition: color 0.2s;
+}
+.clear-hist-btn:hover {
+    color: #e74c3c;
+}
+
+.empty-text, .loading-text {
+    color: #333;
+    font-size: 11px;
+    font-style: italic;
+}
+
+/* ── BEANSHELL MODAL ── */
+.modal-overlay {
+    align-items: center;
+    background: rgba(0,0,0,0.85);
+    display: flex;
+    inset: 0;
+    justify-content: center;
+    position: fixed;
+    z-index: 9999;
+}
+
+.modal-box {
+    background: #111122;
+    border: 1px solid #00b894;
+    border-radius: 6px;
+    box-shadow: 0 0 40px rgba(0,184,148,0.3);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 800px;
+    padding: 16px;
+    width: 90vw;
+}
+
+.modal-header {
+    align-items: center;
+    color: #00b894;
+    display: flex;
+    font-size: 14px;
+    font-weight: bold;
+    justify-content: space-between;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: #555;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+.modal-close:hover {
+    color: #e74c3c;
+}
+
+.modal-hint {
+    color: #555;
+    font-size: 11px;
+}
+.modal-hint code {
+    color: #9cdcfe;
+}
+
+.bsh-editor {
+    background: #0a0a0a;
+    border: 1px solid #2a2a3e;
+    border-radius: 4px;
+    color: #e0e0e0;
+    font-family: inherit;
+    font-size: 13px;
+    height: 300px;
+    line-height: 1.6;
+    outline: none;
+    padding: 12px;
+    resize: vertical;
+    transition: border-color 0.2s;
+    width: 100%;
+}
+.bsh-editor:focus {
+    border-color: #00b894;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+}
+
+.modal-btn {
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: bold;
+    padding: 8px 20px;
+    transition: all 0.2s;
+}
+.modal-btn-run {
+    background: #00b894;
+    color: #000;
+}
+.modal-btn-run:hover {
+    background: #00d4a8;
+}
+.modal-btn-cancel {
+    background: #1e1e2e;
+    border: 1px solid #333;
+    color: #aaa;
+}
+.modal-btn-cancel:hover {
+    border-color: #e74c3c;
+    color: #e74c3c;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+    #sidebar-panel {
+        display: none;
+    }
+    #quick-toolbar {
+        flex-wrap: wrap;
+    }
+}
+.console-textarea {
+  width: 100%;
+  resize: vertical;        /* user can resize height */
+  min-height: 38px;
+  max-height: 260px;
+  overflow: auto;
+  white-space: pre-wrap;   /* keep newlines */
+  font-family: monospace;  /* console feel */
+}

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  IIQ Console Plugin - Ant Build File (No Maven)
+
+  SETUP:
+    1) Create user.build.properties with iiq.home (WEB-INF) path:
+       iiq.home=/path/to/tomcat/webapps/identityiq/WEB-INF
+
+    2) Run:
+       ant all
+
+  OUTPUT:
+    build/IIQConsolePlugin.zip  -> upload via IIQ Admin > Plugins
+-->
+<project name="IIQConsolePlugin" default="all" basedir=".">
+
+  <!-- ============================================================
+       LOAD PROPERTIES (user overrides shared defaults)
+       ============================================================ -->
+  <!-- Load shared defaults first -->
+  <property file="build.properties"/>
+  <!-- Load user-specific overrides (your iiq.home path) -->
+  <property file="user.build.properties"/>
+
+  <!-- Defaults (used if not present in build.properties) -->
+  <property name="plugin.name"    value="IIQConsolePlugin"/>
+  <property name="plugin.version" value="1.0"/>
+
+  <property name="src.dir"     value="src"/>
+  <property name="build.dir"   value="build"/>
+  <property name="classes.dir" value="${build.dir}/classes"/>
+  <property name="dist.dir"    value="${build.dir}/dist"/>
+
+  <property name="ui.dir"      value="ui"/>
+  <property name="import.dir"  value="import"/>
+
+  <!-- iiq.home MUST point to WEB-INF -->
+  <!-- Example:
+       iiq.home=/.../apache-tomcat-9.x/webapps/identityiq/WEB-INF
+  -->
+  <fail message="ERROR: iiq.home is not set. Put it in user.build.properties (WEB-INF path)."
+        unless="iiq.home"/>
+
+  <!-- Derived paths -->
+  <property name="iiq.lib"    value="${iiq.home}/lib"/>
+  <property name="iiq.classes" value="${iiq.home}/classes"/>
+
+  <!-- Tomcat/lib is 3 levels above WEB-INF: WEB-INF/../../../lib -->
+  <property name="tomcat.lib" value="${iiq.home}/../../../lib"/>
+
+  <!-- ============================================================
+       CLASSPATH
+       ============================================================ -->
+  <path id="compile.classpath">
+    <!-- All IIQ WEB-INF libs -->
+    <fileset dir="${iiq.lib}">
+      <include name="*.jar"/>
+    </fileset>
+
+    <!-- IIQ WEB-INF/classes -->
+    <pathelement location="${iiq.classes}"/>
+
+    <!-- Tomcat libs (servlet-api lives here) -->
+    <fileset dir="${tomcat.lib}" erroronmissingdir="false">
+      <include name="*.jar"/>
+    </fileset>
+  </path>
+
+  <!-- ============================================================
+       TARGET: check-setup
+       Only fail for things you truly need to compile.
+       DO NOT enforce plugin-api.jar (your install doesn't have it).
+       ============================================================ -->
+  <target name="check-setup">
+    <available file="${iiq.lib}/identityiq.jar" property="has.iiq.jar"/>
+    <fail unless="has.iiq.jar">
+ERROR: identityiq.jar not found.
+iiq.home=${iiq.home}
+Expected: ${iiq.lib}/identityiq.jar
+    </fail>
+
+    <!-- Optional checks (will not fail) -->
+    <available file="${tomcat.lib}" property="has.tomcat.lib"/>
+    <echo>iiq.home     = ${iiq.home}</echo>
+    <echo>iiq.lib      = ${iiq.lib}</echo>
+    <echo>iiq.classes  = ${iiq.classes}</echo>
+    <echo>tomcat.lib   = ${tomcat.lib}</echo>
+
+    <!-- If servlet jars aren't found, compilation may fail for javax.servlet.* -->
+    <echo>NOTE: If you see 'javax.servlet' compile errors, ensure Tomcat lib is correct.</echo>
+
+    <!-- IMPORTANT: plugin-api.jar is NOT required. Different IIQ versions package classes differently. -->
+    <echo>OK: identityiq.jar found. Proceeding.</echo>
+  </target>
+
+  <!-- ============================================================
+       TARGETS
+       ============================================================ -->
+  <target name="clean" description="Remove build artifacts">
+    <delete dir="${build.dir}"/>
+    <echo>Cleaned ${build.dir}</echo>
+  </target>
+
+  <target name="init" depends="check-setup" description="Create build directories">
+    <mkdir dir="${classes.dir}"/>
+    <mkdir dir="${dist.dir}"/>
+  </target>
+
+  <target name="compile" depends="init" description="Compile Java sources">
+    <javac
+      srcdir="${src.dir}"
+      destdir="${classes.dir}"
+      classpathref="compile.classpath"
+      source="1.8"
+      target="1.8"
+      encoding="UTF-8"
+      includeantruntime="false"
+      debug="true"
+      fork="true">
+      <!-- silence bootstrap warning on newer JDKs -->
+      <compilerarg value="-Xlint:-options"/>
+    </javac>
+    <echo>Compilation successful -> ${classes.dir}</echo>
+  </target>
+
+  <target name="package" depends="compile" description="Package plugin ZIP">
+    <!-- build jar -->
+    <jar destfile="${dist.dir}/${plugin.name}.jar" basedir="${classes.dir}">
+      <manifest>
+        <attribute name="Plugin-Name" value="${plugin.name}"/>
+        <attribute name="Plugin-Version" value="${plugin.version}"/>
+      </manifest>
+    </jar>
+
+    <!-- build zip -->
+    <zip destfile="${build.dir}/${plugin.name}.zip">
+      <zipfileset file="manifest.xml" fullpath="manifest.xml"/>
+      <zipfileset file="${dist.dir}/${plugin.name}.jar" fullpath="${plugin.name}.jar"/>
+
+      <!-- include ui/ only if it exists -->
+      <zipfileset dir="${ui.dir}" prefix="ui" erroronmissingdir="false"/>
+
+      <!-- include import/ only if it exists -->
+      <zipfileset dir="${import.dir}" prefix="import" erroronmissingdir="false"/>
+    </zip>
+
+    <echo>=========================================</echo>
+    <echo>BUILD SUCCESS</echo>
+    <echo>ZIP: ${build.dir}/${plugin.name}.zip</echo>
+    <echo>Upload: IdentityIQ -> Admin Console -> Plugins</echo>
+    <echo>=========================================</echo>
+  </target>
+
+  <target name="all" depends="clean,package" description="Full build: clean + compile + package"/>
+
+</project>

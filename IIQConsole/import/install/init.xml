@@ -1,0 +1,82 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+
+	<ImportAction name="merge">
+		<Configuration name="SystemConfiguration">
+			<Attributes>
+				<Map>
+					<entry key="quickLinkCategories">
+						<value>
+							<List>
+								<QuickLinkCategory name="IIQConsolePlugin"
+									messageKey="IIQ Console" enabled="true"
+									icon="quickLinkCategoryCustom" />
+							</List>
+						</value>
+					</entry>
+				</Map>
+			</Attributes>
+		</Configuration>
+	</ImportAction>
+
+	<SPRight name="IIQConsolePluginAccess">
+		<Description>Access to IIQ Console Plugin</Description>
+	</SPRight>
+	<Capability name="IIQConsolePluginAccessAdmin"
+		displayName="IIQ Console PluginAccess Admin">
+		<Description>IIQ Console Capability</Description>
+		<RightRefs>
+			<Reference class="sailpoint.object.SPRight"
+				name="IIQConsolePluginAccess" />
+		</RightRefs>
+	</Capability>
+
+
+	<Identity name="IIQ Console Admin WG" workgroup="true">
+		<Attributes>
+			<Map>
+				<entry key="displayName" value="IIQ Console Admin WG" />
+				<entry key="name" value="IIQ Console Admin WG" />
+			</Map>
+		</Attributes>
+		<Capabilities>
+			<Reference class="sailpoint.object.Capability"
+				name="IIQConsolePluginAccessAdmin" />
+		</Capabilities>
+		<Description>IIQ Console Admin WG</Description>
+		<Owner>
+			<Reference class="sailpoint.object.Identity" name="spadmin" />
+		</Owner>
+	</Identity>
+
+
+	<DynamicScope name="IIQ Console Admin">
+		<Selector>
+			<IdentitySelector>
+				<MatchExpression>
+					<MatchTerm name="workgroups" value="IIQ Console Admin WG" />
+				</MatchExpression>
+			</IdentitySelector>
+		</Selector>
+	</DynamicScope>
+
+
+	<QuickLink name="IIQConsole" messageKey="IIQ Console"
+		category="IIQConsolePlugin" action="external" ordering="10">
+		<Attributes>
+			<Map>
+				<entry key="url"
+					value="plugins/pluginPage.jsf?pn=IIQConsolePlugin" />
+			</Map>
+		</Attributes>
+
+		<QuickLinkOptions allowSelf="true">
+			<DynamicScopeRef>
+				<Reference class="sailpoint.object.DynamicScope"
+					name="IIQ Console Admin" />
+			</DynamicScopeRef>
+		</QuickLinkOptions>
+	</QuickLink>
+
+</sailpoint>

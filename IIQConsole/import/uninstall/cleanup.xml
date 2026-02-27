@@ -1,0 +1,25 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<sailpoint>
+
+  <!-- Remove quicklink -->
+  <QuickLink name="IIQConsolePluginQuickLink" delete="true"/>
+
+  <!-- Remove quicklink category from SystemConfiguration -->
+  <ImportAction name="merge">
+    <Configuration name="SystemConfiguration">
+      <Attributes>
+        <Map>
+          <entry key="quickLinkCategories">
+            <value>
+              <List>
+                <QuickLinkCategory name="IIQConsolePlugin" delete="true"/>
+              </List>
+            </value>
+          </entry>
+        </Map>
+      </Attributes>
+    </Configuration>
+  </ImportAction>
+
+</sailpoint>

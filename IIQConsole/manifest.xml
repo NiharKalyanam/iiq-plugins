@@ -1,0 +1,49 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Plugin PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Plugin name="IIQConsolePlugin"
+        displayName="IIQ Console"
+        version="1.0"
+        minSystemVersion="8.1"
+        certificationLevel="None">
+
+  <Attributes>
+    <Map>
+
+      <entry key="minUpgradableVersion" value="1.0"/>
+
+      <!-- Full page entrypoint: IIQ will load ui/pluginPage.xhtml -->
+      <entry key="fullPage">
+        <value>
+          <FullPage title="IIQ Console"/>
+        </value>
+      </entry>
+
+      <!-- Register REST resources (do NOT use <RestResources> tag) -->
+      <entry key="restResources">
+        <value>
+          <List>
+            <String>com.sailpoint.iiqconsole.ConsolePluginResource</String>
+          </List>
+        </value>
+      </entry>
+
+      <!-- Optional: auto-load CSS/JS on all pages (can remove if not needed) -->
+      <entry key="snippets">
+        <value>
+          <List>
+            <Snippet regexPattern=".*" rightRequired="SystemAdministrator">
+              <Scripts>
+                <String>ui/js/console.js</String>
+              </Scripts>
+              <StyleSheets>
+                <String>ui/css/console.css</String>
+              </StyleSheets>
+            </Snippet>
+          </List>
+        </value>
+      </entry>
+
+    </Map>
+  </Attributes>
+
+</Plugin>
