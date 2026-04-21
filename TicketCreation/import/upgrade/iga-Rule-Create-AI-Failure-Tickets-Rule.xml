@@ -1,0 +1,690 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule language="beanshell" name="Create AI Failure Tickets Rule" type="Workflow">
+  <Description>
+    Creates one ticket per failed provisioning item from LCM workflow.
+    AI summary is generated during workflow and saved into ai_summary.
+    Assignment email is also sent after ticket creation.
+  </Description>
+  <Signature>
+    <Inputs>
+      <Argument name="project"/>
+      <Argument name="identityName"/>
+      <Argument name="identityRequestId"/>
+      <Argument name="trace"/>
+      <Argument name="source"/>
+    </Inputs>
+  </Signature>
+  <Source>
+  import java.util.*;
+  import java.sql.Connection;
+  import java.sql.PreparedStatement;
+  import java.sql.ResultSet;
+  import java.sql.Timestamp;
+  import java.net.URL;
+  import java.net.URLConnection;
+  import java.net.HttpURLConnection;
+  import java.io.BufferedReader;
+  import java.io.InputStreamReader;
+  import java.io.InputStream;
+  import java.io.OutputStream;
+  import java.lang.reflect.Method;
+
+  import org.json.JSONObject;
+  import org.json.JSONArray;
+
+  import sailpoint.api.ObjectUtil;
+
+  import sailpoint.object.ProvisioningPlan;
+  import sailpoint.object.ProvisioningResult;
+  import sailpoint.object.Custom;
+  import sailpoint.object.Filter;
+  import sailpoint.object.ManagedAttribute;
+  import sailpoint.object.QueryOptions;
+  import sailpoint.object.EmailOptions;
+  import sailpoint.object.EmailTemplate;
+  import sailpoint.object.Identity;
+
+  import org.apache.log4j.Logger;
+
+  Logger log = Logger.getLogger("rule.ticketCreation");
+  log.debug("Create AI Failure Tickets Rule was initiated...");
+
+  String safe(Object obj) {
+    return obj == null ? null : String.valueOf(obj);
+  }
+
+  boolean isEmpty(String str) {
+    return str == null || str.trim().length() == 0;
+  }
+
+  void closeQuietly(AutoCloseable c) {
+    if (c != null) {
+      try { c.close(); } catch (Exception e) {}
+    }
+  }
+
+  String readCustomValue(String customName, String key) {
+    try {
+      Custom c = context.getObjectByName(Custom.class, customName);
+      if (c == null) {
+        log.warn("Custom object not found: " + customName);
+        return null;
+      }
+      Object v = c.get(key);
+      return v == null ? null : String.valueOf(v);
+    } catch (Exception e) {
+      log.error("Error reading custom value. customName=" + customName + ", key=" + key, e);
+      return null;
+    }
+  }
+
+  String resolveFriendlyAccessName(String applicationName, String attrName, Object rawValue) {
+    if (rawValue == null) {
+      return null;
+    }
+
+    String raw = String.valueOf(rawValue);
+
+    try {
+      if (applicationName != null &amp;&amp; raw != null) {
+        QueryOptions qo = new QueryOptions();
+        qo.addFilter(Filter.eq("application.name", applicationName));
+        qo.addFilter(Filter.eq("value", raw));
+
+        List managed = context.getObjects(ManagedAttribute.class, qo);
+        if (managed != null &amp;&amp; !managed.isEmpty()) {
+          ManagedAttribute ma = (ManagedAttribute) managed.get(0);
+
+          if (ma.getDisplayName() != null &amp;&amp; ma.getDisplayName().trim().length() > 0) {
+            return ma.getDisplayName();
+          }
+
+          if (ma.getAttribute() != null &amp;&amp; ma.getAttribute().trim().length() > 0) {
+            return ma.getAttribute();
+          }
+
+          if (ma.getValue() != null &amp;&amp; ma.getValue().trim().length() > 0) {
+            return ma.getValue();
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.debug("Unable to resolve friendly access name for application: " + applicationName, e);
+    }
+
+    return raw;
+  }
+
+  String buildAffectedAccess(ProvisioningPlan.AccountRequest ar) {
+    if (ar == null) {
+      return null;
+    }
+
+    List parts = new ArrayList();
+    String applicationName = null;
+
+    try {
+      applicationName = ar.getApplicationName();
+    } catch (Exception e) {
+      log.debug("Unable to read applicationName from account request", e);
+    }
+
+    try {
+      List attrRequests = ar.getAttributeRequests();
+      if (attrRequests != null) {
+        for (Object o : attrRequests) {
+          ProvisioningPlan.AttributeRequest at = (ProvisioningPlan.AttributeRequest) o;
+          if (at != null) {
+            String name = safe(at.getName());
+            Object valueObj = at.getValue();
+
+            if (valueObj instanceof List) {
+              List values = (List) valueObj;
+              for (Object singleVal : values) {
+                String friendly = resolveFriendlyAccessName(applicationName, name, singleVal);
+                if (friendly != null &amp;&amp; friendly.trim().length() > 0) {
+                  parts.add(friendly);
+                }
+              }
+            } else {
+              String friendly = resolveFriendlyAccessName(applicationName, name, valueObj);
+              if (friendly != null &amp;&amp; friendly.trim().length() > 0) {
+                parts.add(friendly);
+              }
+            }
+          }
+        }
+      }
+    } catch (Exception e) {
+      log.debug("Unable to build affected access from attribute requests", e);
+    }
+
+    try {
+      if (parts.isEmpty() &amp;&amp; ar.getNativeIdentity() != null) {
+        parts.add(String.valueOf(ar.getNativeIdentity()));
+      }
+    } catch (Exception e) {
+      log.debug("Unable to read native identity from account request", e);
+    }
+
+    if (parts.isEmpty()) {
+      return null;
+    }
+
+    StringBuilder sb = new StringBuilder();
+    for (int i = 0; i &lt; parts.size(); i++) {
+      if (i > 0) {
+        sb.append("\n");
+      }
+      sb.append(parts.get(i));
+    }
+    return sb.toString();
+  }
+
+  String buildPrompt(String applicationName, String identityNameVal, String operation, String affectedAccess, String errorMessage) {
+    return "Analyze IAM provisioning failure:\n\n" +
+      "Application: " + (applicationName == null ? "N/A" : applicationName) + "\n" +
+      "Identity: " + (identityNameVal == null ? "N/A" : identityNameVal) + "\n" +
+      "Operation: " + (operation == null ? "N/A" : operation) + "\n" +
+      "Affected Access: " + (affectedAccess == null ? "N/A" : affectedAccess) + "\n" +
+      "Error: " + (errorMessage == null ? "N/A" : errorMessage) + "\n\n" +
+      "Return ONLY valid JSON in this exact format:\n" +
+      "{\n" +
+      "  \"rootCause\": \"...\",\n" +
+      "  \"recommendation\": \"...\",\n" +
+      "  \"severity\": \"Low|Medium|High\",\n" +
+      "  \"confidence\": 0.0,\n" +
+      "  \"assignmentGroup\": \"...\"\n" +
+      "}\n" +
+      "Do not include markdown. Do not include extra text.";
+  }
+
+  String callAI(String applicationName, String identityNameVal, String operation, String affectedAccess, String errorMessage) {
+    BufferedReader reader = null;
+
+    try {
+      String aiEnabled = readCustomValue("Custom-Ticket-Creation", "aiEnabled");
+      if (aiEnabled != null &amp;&amp; !"true".equalsIgnoreCase(aiEnabled)) {
+        log.debug("AI is disabled from custom object");
+        return null;
+      }
+
+      String apiKey = readCustomValue("Custom-Ticket-Creation", "openai.api.key");
+      if (apiKey == null || apiKey.trim().length() == 0) {
+        return "AI error: API key not configured";
+      }
+
+      String prompt = buildPrompt(applicationName, identityNameVal, operation, affectedAccess, errorMessage);
+
+      JSONObject requestBody = new JSONObject();
+      requestBody.put("model", "gpt-4.1-mini");
+
+      JSONArray messages = new JSONArray();
+
+      JSONObject system = new JSONObject();
+      system.put("role", "system");
+      system.put("content", "You are an IAM expert. Analyze failures and return ONLY valid JSON.");
+
+      JSONObject user = new JSONObject();
+      user.put("role", "user");
+      user.put("content", prompt);
+
+      messages.put(system);
+      messages.put(user);
+      requestBody.put("messages", messages);
+
+      byte[] bodyBytes = requestBody.toString().getBytes("utf-8");
+
+      URL url = new URL("https://api.openai.com/v1/chat/completions");
+      Object conn = url.openConnection();
+
+      Method setRequestMethod = HttpURLConnection.class.getDeclaredMethod("setRequestMethod", new Class[]{String.class});
+      setRequestMethod.setAccessible(true);
+      setRequestMethod.invoke(conn, new Object[]{"POST"});
+
+      Method setDoOutput = URLConnection.class.getDeclaredMethod("setDoOutput", new Class[]{boolean.class});
+      setDoOutput.setAccessible(true);
+      setDoOutput.invoke(conn, new Object[]{Boolean.TRUE});
+
+      Method setConnectTimeout = URLConnection.class.getDeclaredMethod("setConnectTimeout", new Class[]{int.class});
+      setConnectTimeout.setAccessible(true);
+      setConnectTimeout.invoke(conn, new Object[]{Integer.valueOf(15000)});
+
+      Method setReadTimeout = URLConnection.class.getDeclaredMethod("setReadTimeout", new Class[]{int.class});
+      setReadTimeout.setAccessible(true);
+      setReadTimeout.invoke(conn, new Object[]{Integer.valueOf(30000)});
+
+      Method setRequestProperty = URLConnection.class.getDeclaredMethod("setRequestProperty", new Class[]{String.class, String.class});
+      setRequestProperty.setAccessible(true);
+      setRequestProperty.invoke(conn, new Object[]{"Authorization", "Bearer " + apiKey});
+      setRequestProperty.invoke(conn, new Object[]{"Content-Type", "application/json"});
+
+      Method getOutputStream = URLConnection.class.getDeclaredMethod("getOutputStream", new Class[]{});
+      getOutputStream.setAccessible(true);
+      OutputStream os = (OutputStream) getOutputStream.invoke(conn, new Object[]{});
+      os.write(bodyBytes);
+      os.flush();
+      os.close();
+
+      Method getResponseCode = HttpURLConnection.class.getDeclaredMethod("getResponseCode", new Class[]{});
+      getResponseCode.setAccessible(true);
+      int responseCode = ((Integer) getResponseCode.invoke(conn, new Object[]{})).intValue();
+
+      Method getStream;
+      if (responseCode == 200) {
+        getStream = URLConnection.class.getDeclaredMethod("getInputStream", new Class[]{});
+      } else {
+        getStream = HttpURLConnection.class.getDeclaredMethod("getErrorStream", new Class[]{});
+      }
+      getStream.setAccessible(true);
+      InputStream is = (InputStream) getStream.invoke(conn, new Object[]{});
+
+      if (is == null) {
+        return "AI error: HTTP " + responseCode + " with empty response";
+      }
+
+      reader = new BufferedReader(new InputStreamReader(is, "utf-8"));
+      StringBuilder response = new StringBuilder();
+      String line;
+      while ((line = reader.readLine()) != null) {
+        response.append(line);
+      }
+
+      String raw = response.toString();
+      if (raw == null || raw.trim().length() == 0) {
+        return "AI error: empty response from AI service";
+      }
+
+      raw = raw.trim();
+
+      if (!raw.startsWith("{")) {
+        return "AI error: non-JSON response from AI service: " + raw;
+      }
+
+      JSONObject json = new JSONObject(raw);
+
+      if (responseCode != 200) {
+        return "AI error: " + json.toString();
+      }
+
+      JSONArray choices = json.optJSONArray("choices");
+      if (choices == null || choices.length() == 0) {
+        return "AI error: no choices returned by AI service";
+      }
+
+      JSONObject message = choices.getJSONObject(0).getJSONObject("message");
+      String content = message.optString("content", "");
+
+      if (content == null || content.trim().length() == 0) {
+        return "AI error: empty AI content";
+      }
+
+      return content.trim();
+
+    } catch (Exception e) {
+      log.error("Error while calling AI", e);
+      return "AI error: " + e.getClass().getName() + ": " + e.getMessage();
+    } finally {
+      closeQuietly(reader);
+    }
+  }
+
+  Long createFailureTicket(String sourceType,
+                           String applicationName,
+                           String ticketIdentityName,
+                           String operation,
+                           String finalError,
+                           String aiSummary,
+                           String requestId,
+                           String assignedTo) {
+    Connection conn = null;
+    PreparedStatement ps = null;
+    ResultSet rs = null;
+
+    try {
+      conn = context.getConnection();
+
+      ps = conn.prepareStatement(
+        "INSERT INTO iiq_ai_failure_ticket " +
+        "(source_type, application_name, identity_name, operation, error_message, ai_summary, status, assigned_to, request_id, created) " +
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        PreparedStatement.RETURN_GENERATED_KEYS
+      );
+
+      ps.setString(1, sourceType);
+      ps.setString(2, applicationName);
+      ps.setString(3, ticketIdentityName);
+      ps.setString(4, operation);
+      ps.setString(5, finalError);
+      ps.setString(6, aiSummary);
+      ps.setString(7, "ASSIGNED");
+      ps.setString(8, assignedTo);
+      ps.setString(9, requestId);
+      ps.setTimestamp(10, new Timestamp(System.currentTimeMillis()));
+
+      int rows = ps.executeUpdate();
+      log.debug("Ticket insert completed. Rows inserted: " + rows + ", requestId: " + requestId);
+
+      rs = ps.getGeneratedKeys();
+      if (rs != null &amp;&amp; rs.next()) {
+        Long ticketId = new Long(rs.getLong(1));
+        log.debug("Generated ticket id: " + ticketId);
+        return ticketId;
+      }
+
+      log.warn("Ticket inserted but generated key not returned for requestId: " + requestId);
+      return null;
+
+    } catch (Exception e) {
+      log.error("Error while inserting failure ticket for requestId: " + requestId, e);
+      return null;
+    } finally {
+      closeQuietly(rs);
+      closeQuietly(ps);
+    }
+  }
+  String buildPluginUrl() {
+    try {
+      sailpoint.object.Configuration cfg =
+        context.getObjectByName(sailpoint.object.Configuration.class, "SystemConfiguration");
+
+      if (cfg != null) {
+        String base = (String) cfg.get("serverRootPath");
+        if (base != null) {
+          return base.replaceAll("/$", "") + "/plugins/pluginPage.jsf?pn=TicketCreation";
+        }
+      }
+    } catch (Exception e) {
+      log.warn("Unable to build plugin URL", e);
+    }
+    return "";
+  }
+
+  void sendAssignmentNotification(Long ticketId,
+                                  String assignedTo,
+                                  String applicationName,
+                                  String ticketIdentityName,
+                                  String operation,
+                                  String finalError,
+                                  String requestId,
+                                  String sourceType) {
+    try {
+      String allowEmails = readCustomValue("Custom-Ticket-Creation", "allowAssignmentEmails");
+      if (allowEmails != null @and !"true".equalsIgnoreCase(allowEmails)) {
+        log.debug("Assignment emails are disabled in custom object.");
+        return;
+      }
+
+      String templateName = readCustomValue("Custom-Ticket-Creation", "assignmentEmailTemplate");
+      if (isEmpty(templateName)) {
+        templateName = "Ticket Creation Assignment Notification";
+      }
+
+      EmailTemplate template = context.getObjectByName(EmailTemplate.class, templateName);
+      if (template == null) {
+        log.warn("Email template not found: " + templateName);
+        return;
+      }
+
+      Identity assignedIdentity = context.getObjectByName(Identity.class, assignedTo);
+      if (assignedIdentity == null) {
+        log.warn("Assigned identity/workgroup not found for email: " + assignedTo);
+        return;
+      }
+
+      template = (EmailTemplate) template.deepCopy(context);
+
+      String pluginUrl = buildPluginUrl();
+      log.debug("Plugin URL from the sendAssignmentNotification is..."+pluginUrl);
+      if (pluginUrl == null) {
+        pluginUrl = "";
+      }
+
+      Map args = new HashMap();
+      args.put("ticketId", ticketId == null ? "" : String.valueOf(ticketId));
+      args.put("assignedTo", assignedTo == null ? "" : assignedTo);
+      args.put("applicationName", applicationName == null ? "" : applicationName);
+      args.put("identityName", ticketIdentityName == null ? "" : ticketIdentityName);
+      args.put("operation", operation == null ? "" : operation);
+      args.put("errorMessage", finalError == null ? "" : finalError);
+      args.put("requestId", requestId == null ? "" : requestId);
+      args.put("status", "ASSIGNED");
+      args.put("sourceType", sourceType == null ? "" : sourceType);
+      args.put("pluginUrl", pluginUrl);
+
+      if (assignedIdentity.isWorkgroup()) {
+        log.debug("Assigned target is a workgroup. Resolving members using ObjectUtil for: " + assignedTo);
+
+        Iterator workgroupMembers = null;
+        boolean emailSent = false;
+
+        try {
+          workgroupMembers = sailpoint.api.ObjectUtil.getWorkgroupMembers(context, assignedIdentity, null);
+
+          if (workgroupMembers == null) {
+            log.warn("Workgroup members iterator is null for workgroup: " + assignedTo);
+            return;
+          }
+
+          while (workgroupMembers.hasNext()) {
+            Object[] row = (Object[]) workgroupMembers.next();
+            if (row == null || row.length == 0 || row[0] == null) {
+              continue;
+            }
+
+            Identity member = (Identity) row[0];
+            if (member == null) {
+              continue;
+            }
+
+            String memberName = member.getDisplayName();
+            if (isEmpty(memberName)) {
+              memberName = member.getName();
+            }
+
+            String memberEmail = member.getEmail();
+            if (isEmpty(memberEmail)) {
+              log.warn("Skipping workgroup member with no email. Member: " + member.getName() + ", Workgroup: " + assignedTo);
+              continue;
+            }
+
+            try {
+              Map memberArgs = new HashMap(args);
+              memberArgs.put("assignedUser", memberName == null ? "" : memberName);
+
+              EmailOptions options = new EmailOptions(memberEmail, memberArgs);
+              context.sendEmailNotification(template, options);
+
+              log.debug("Assignment notification sent successfully to workgroup member: " + memberEmail + " for ticketId: " + ticketId);
+              emailSent = true;
+            } catch (Exception ex) {
+              log.error("Failed sending assignment notification to workgroup member: " + memberEmail + " for ticketId: " + ticketId, ex);
+            }
+          }
+
+          if (!emailSent) {
+            log.warn("No assignment notification email was sent because no workgroup members had a valid email address. Workgroup: " + assignedTo);
+          }
+
+        } finally {
+          if (workgroupMembers != null) {
+            sailpoint.tools.Util.flushIterator(workgroupMembers);
+          }
+        }
+
+      } else {
+        String emailAddress = assignedIdentity.getEmail();
+        if (isEmpty(emailAddress)) {
+          log.warn("Assigned identity has no email address: " + assignedTo);
+          return;
+        }
+
+        String assignedUser = assignedIdentity.getDisplayName();
+        if (isEmpty(assignedUser)) {
+          assignedUser = assignedIdentity.getName();
+        }
+
+        args.put("assignedUser", assignedUser == null ? "" : assignedUser);
+
+        sailpoint.tools.EmailOptions options =
+          new sailpoint.tools.EmailOptions(emailAddress, args);
+
+        context.sendEmailNotification(template, options);
+
+        log.debug("Assignment notification sent successfully to: " + emailAddress + " for ticketId: " + ticketId);
+      }
+
+    } catch (Exception e) {
+      log.error("Error while sending assignment notification for ticketId: " + ticketId, e);
+    }
+  }
+
+  if (project != null) {
+
+    List plans = null;
+
+    try {
+      plans = project.getPlans();
+    } catch (Exception e) {
+      plans = null;
+      log.error("Unable to get provisioning plans from project", e);
+    }
+
+    if (plans != null) {
+      log.debug("Create AI Failure Tickets Rule PLAN is NOT NULL...");
+      for (Object pObj : plans) {
+
+        ProvisioningPlan p = (ProvisioningPlan) pObj;
+        if (p == null) {
+          continue;
+        }
+
+        List accountRequests = null;
+        try {
+          accountRequests = p.getAccountRequests();
+        } catch (Exception e) {
+          accountRequests = null;
+          log.debug("Unable to get account requests from plan", e);
+        }
+
+        if (accountRequests == null) {
+          continue;
+        }
+
+        for (Object arObj : accountRequests) {
+
+          ProvisioningPlan.AccountRequest ar = (ProvisioningPlan.AccountRequest) arObj;
+          if (ar == null) {
+            continue;
+          }
+
+          ProvisioningResult result = null;
+          try {
+            result = ar.getResult();
+          } catch (Exception e) {
+            result = null;
+            log.debug("Unable to get provisioning result from account request", e);
+          }
+
+          if (result == null) {
+            continue;
+          }
+
+          boolean failed = false;
+          String errorMessage = null;
+
+          try {
+            if (result.getStatus() != null &amp;&amp; "failed".equalsIgnoreCase(String.valueOf(result.getStatus()))) {
+              failed = true;
+            }
+          } catch (Exception e) {
+            log.debug("Unable to inspect provisioning result status", e);
+          }
+
+          try {
+            if (!failed &amp;&amp; result.getErrors() != null &amp;&amp; !result.getErrors().isEmpty()) {
+              failed = true;
+            }
+          } catch (Exception e) {
+            log.debug("Unable to inspect provisioning result errors", e);
+          }
+
+          if (!failed) {
+            continue;
+          }
+
+          try {
+            if (result.getErrors() != null &amp;&amp; !result.getErrors().isEmpty()) {
+              errorMessage = String.valueOf(result.getErrors());
+            } else if (result.getMessages() != null &amp;&amp; !result.getMessages().isEmpty()) {
+              errorMessage = String.valueOf(result.getMessages());
+            } else {
+              errorMessage = "Provisioning failed";
+            }
+          } catch (Exception e) {
+            errorMessage = "Provisioning failed";
+          }
+
+          String applicationName = null;
+          String operation = null;
+
+          try {
+            applicationName = ar.getApplicationName();
+          } catch (Exception e) {
+            log.debug("Unable to read applicationName", e);
+          }
+
+          try {
+            if (ar.getOperation() != null) {
+              operation = String.valueOf(ar.getOperation());
+            }
+          } catch (Exception e) {
+            log.debug("Unable to read operation", e);
+          }
+
+          String affectedAccess = buildAffectedAccess(ar);
+          String finalError = errorMessage;
+
+          if (affectedAccess != null &amp;&amp; affectedAccess.trim().length() > 0) {
+            finalError = "Access: " + affectedAccess + " | Error: " + errorMessage;
+          }
+
+          String ticketIdentityName = safe(identityName);
+          String assignedTo = "Ticket Creation Admin";
+
+          String aiSummary = callAI(applicationName, ticketIdentityName, operation, affectedAccess, errorMessage);
+
+          Long ticketId = createFailureTicket(
+            source,
+            applicationName,
+            ticketIdentityName,
+            operation,
+            finalError,
+            aiSummary,
+            safe(identityRequestId),
+            assignedTo
+          );
+
+          if (ticketId != null) {
+            sendAssignmentNotification(
+              ticketId,
+              assignedTo,
+              applicationName,
+              ticketIdentityName,
+              operation,
+              finalError,
+              safe(identityRequestId),
+              source
+            );
+          } else {
+            log.warn("Ticket was not created, so assignment email was skipped for requestId: " + safe(identityRequestId));
+          }
+        }
+      }
+    }
+  }
+
+  return;
+  </Source>
+</Rule>

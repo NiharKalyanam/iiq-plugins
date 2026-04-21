@@ -1,0 +1,222 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+
+  <EmailTemplate name="Ticket Creation Mention Notification">
+    <Description>
+      Sent when a user is @mentioned in a Ticket Creation chatter comment.
+      Gives the mentioned user a link to view the ticket in IdentityIQ.
+    </Description>
+
+    <Subject>You were mentioned on Ticket #$ticketId - $applicationName</Subject>
+
+    <Body><![CDATA[
+<html>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#1a1a1a;background:#f4f6f9;margin:0;padding:0;">
+<div style="max-width:640px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+  <!-- Header -->
+  <div style="background:#173f8a;padding:24px 32px;">
+    <div style="color:#ffffff;font-size:20px;font-weight:bold;">&#9889; IdentityIQ Ticket Creation</div>
+    <div style="color:#a8c0f0;font-size:13px;margin-top:4px;">Mention Notification</div>
+  </div>
+
+  <!-- Greeting -->
+  <div style="padding:24px 32px 0 32px;">
+    <p style="margin:0 0 8px 0;">Hi <strong>$mentionedUser</strong>,</p>
+    <p style="margin:0;color:#444;">You have been mentioned in a ticket chatter comment in IdentityIQ.</p>
+  </div>
+
+  <!-- Ticket Details Table -->
+  <div style="padding:20px 32px;">
+    <div style="font-size:11px;font-weight:bold;color:#173f8a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Ticket Details</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;width:38%;border:1px solid #d0d8ef;">Ticket ID</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">#$ticketId</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Application</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$applicationName</td>
+      </tr>
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Identity</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$identityName</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Operation</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$operation</td>
+      </tr>
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Status</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$status</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Assigned To</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$assignedTo</td>
+      </tr>
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Source</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$sourceType</td>
+      </tr>
+#if ( $affectedAccess && $affectedAccess != "" )
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;vertical-align:top;">Affected Access</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+#foreach ( $entry in $affectedAccess.split("
+") )
+#if ( $entry && $entry.trim() != "" )
+            <tr style="border-bottom:1px solid #e8edf5;">
+              <td style="padding:4px 6px;color:#2c3e7a;">&#8226; $entry.trim()</td>
+            </tr>
+#end
+#end
+          </table>
+        </td>
+      </tr>
+#end
+    </table>
+  </div>
+
+  <!-- Comment -->
+  <div style="padding:0 32px 20px 32px;">
+    <div style="font-size:11px;font-weight:bold;color:#173f8a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Comment</div>
+    <div style="background:#f8f9ff;border-left:4px solid #173f8a;border-radius:4px;padding:12px 16px;font-size:13px;color:#333;white-space:pre-wrap;">$commentText</div>
+  </div>
+
+  <!-- CTA Button -->
+  <div style="padding:0 32px 28px 32px;">
+    <a href="$pluginUrl" style="display:inline-block;background:#173f8a;color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:5px;font-size:13px;font-weight:bold;">View Ticket in IdentityIQ</a>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#f0f4ff;padding:14px 32px;font-size:11px;color:#8898b4;border-top:1px solid #d0d8ef;">
+    This is an automated notification from IdentityIQ Ticket Creation Plugin. If you believe you received this in error, contact your IIQ administrator.
+  </div>
+
+</div>
+</body>
+</html>
+    ]]></Body>
+
+    <Signature>
+      <Inputs>
+        <Argument name="ticketId" type="string"><Description>The ticket ID.</Description></Argument>
+        <Argument name="applicationName" type="string"><Description>The application name on the ticket.</Description></Argument>
+        <Argument name="identityName" type="string"><Description>The identity name on the ticket.</Description></Argument>
+        <Argument name="operation" type="string"><Description>The provisioning operation.</Description></Argument>
+        <Argument name="status" type="string"><Description>The current ticket status.</Description></Argument>
+        <Argument name="assignedTo" type="string"><Description>Who the ticket is assigned to.</Description></Argument>
+        <Argument name="errorMessage" type="string"><Description>The error message on the ticket.</Description></Argument>
+        <Argument name="sourceType" type="string"><Description>The source type (e.g. LCM).</Description></Argument>
+        <Argument name="requestId" type="string"><Description>The identity request ID.</Description></Argument>
+        <Argument name="mentionedUser" type="string"><Description>Display name of the mentioned user.</Description></Argument>
+        <Argument name="commentText" type="string"><Description>The full comment text containing the mention.</Description></Argument>
+        <Argument name="pluginUrl" type="string"><Description>Direct URL to the Ticket Creation plugin page.</Description></Argument>
+        <Argument name="affectedAccess" type="string"><Description>Affected access entries from the error message.</Description></Argument>
+      </Inputs>
+    </Signature>
+  </EmailTemplate>
+
+  <EmailTemplate name="Ticket Creation Assignment Notification">
+    <Description>
+      Sent when a ticket is assigned to an identity in the Ticket Creation plugin.
+    </Description>
+
+    <Subject>Ticket #$ticketId has been assigned to you - $applicationName</Subject>
+
+    <Body><![CDATA[
+<html>
+<body style="font-family:Arial,sans-serif;font-size:14px;color:#1a1a1a;background:#f4f6f9;margin:0;padding:0;">
+<div style="max-width:640px;margin:32px auto;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+
+  <!-- Header -->
+  <div style="background:#173f8a;padding:24px 32px;">
+    <div style="color:#ffffff;font-size:20px;font-weight:bold;">&#9889; IdentityIQ Ticket Creation</div>
+    <div style="color:#a8c0f0;font-size:13px;margin-top:4px;">Assignment Notification</div>
+  </div>
+
+  <!-- Greeting -->
+  <div style="padding:24px 32px 0 32px;">
+    <p style="margin:0 0 8px 0;">Hi <strong>$assignedUser</strong>,</p>
+    <p style="margin:0;color:#444;">A provisioning failure ticket has been assigned to you in IdentityIQ.</p>
+  </div>
+
+  <!-- Ticket Details Table -->
+  <div style="padding:20px 32px;">
+    <div style="font-size:11px;font-weight:bold;color:#173f8a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Ticket Details</div>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;">
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;width:38%;border:1px solid #d0d8ef;">Ticket ID</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">#$ticketId</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Application</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$applicationName</td>
+      </tr>
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Identity</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$identityName</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Operation</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$operation</td>
+      </tr>
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Status</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$status</td>
+      </tr>
+      <tr>
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Source</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$sourceType</td>
+      </tr>
+#if ( $requestId && $requestId != "" )
+      <tr style="background:#f0f4ff;">
+        <td style="padding:8px 12px;font-weight:bold;color:#173f8a;border:1px solid #d0d8ef;">Request ID</td>
+        <td style="padding:8px 12px;border:1px solid #d0d8ef;">$requestId</td>
+      </tr>
+#end
+    </table>
+  </div>
+
+  <!-- Error Summary -->
+  <div style="padding:0 32px 20px 32px;">
+    <div style="font-size:11px;font-weight:bold;color:#173f8a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:10px;">Error Summary</div>
+    <div style="background:#fff5f5;border-left:4px solid #c0392b;border-radius:4px;padding:12px 16px;font-size:12px;color:#333;white-space:pre-wrap;">$errorMessage</div>
+  </div>
+
+  <!-- CTA Button -->
+  <div style="padding:0 32px 28px 32px;">
+    <a href="$pluginUrl" style="display:inline-block;background:#173f8a;color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:5px;font-size:13px;font-weight:bold;">View Ticket in IdentityIQ</a>
+  </div>
+
+  <!-- Footer -->
+  <div style="background:#f0f4ff;padding:14px 32px;font-size:11px;color:#8898b4;border-top:1px solid #d0d8ef;">
+    This is an automated notification from IdentityIQ Ticket Creation Plugin. If you believe you received this in error, contact your IIQ administrator.
+  </div>
+
+</div>
+</body>
+</html>
+    ]]></Body>
+
+    <Signature>
+      <Inputs>
+        <Argument name="ticketId" type="string"><Description>The ticket ID.</Description></Argument>
+        <Argument name="applicationName" type="string"><Description>The application name on the ticket.</Description></Argument>
+        <Argument name="identityName" type="string"><Description>The identity name on the ticket.</Description></Argument>
+        <Argument name="operation" type="string"><Description>The provisioning operation.</Description></Argument>
+        <Argument name="status" type="string"><Description>The current ticket status.</Description></Argument>
+        <Argument name="assignedTo" type="string"><Description>Who the ticket is assigned to.</Description></Argument>
+        <Argument name="errorMessage" type="string"><Description>The error message on the ticket.</Description></Argument>
+        <Argument name="sourceType" type="string"><Description>The source type (e.g. LCM).</Description></Argument>
+        <Argument name="requestId" type="string"><Description>The identity request ID.</Description></Argument>
+        <Argument name="assignedUser" type="string"><Description>Display name of the assigned user.</Description></Argument>
+        <Argument name="pluginUrl" type="string"><Description>Direct URL to the Ticket Creation plugin page.</Description></Argument>
+      </Inputs>
+    </Signature>
+  </EmailTemplate>
+
+</sailpoint>

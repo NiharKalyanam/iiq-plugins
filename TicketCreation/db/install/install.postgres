@@ -1,0 +1,63 @@
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket (
+    id BIGSERIAL PRIMARY KEY,
+    source_type VARCHAR(100),
+    application_name VARCHAR(255),
+    identity_name VARCHAR(255),
+    operation VARCHAR(100),
+    error_message TEXT,
+    ai_summary TEXT,
+    status VARCHAR(50) NOT NULL,
+    assigned_to VARCHAR(255),
+    request_id VARCHAR(255),
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved TIMESTAMP NULL,
+    resolution_notes TEXT
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_status
+    ON iiq_ai_failure_ticket (status);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_application
+    ON iiq_ai_failure_ticket (application_name);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_identity
+    ON iiq_ai_failure_ticket (identity_name);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_request
+    ON iiq_ai_failure_ticket (request_id);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_created
+    ON iiq_ai_failure_ticket (created);
+
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket_comment (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id BIGINT NOT NULL,
+    comment_by VARCHAR(255),
+    comment_text TEXT,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ai_failure_ticket_comment_ticket
+        FOREIGN KEY (ticket_id)
+        REFERENCES iiq_ai_failure_ticket (id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_comment_ticket
+    ON iiq_ai_failure_ticket_comment (ticket_id);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_comment_created
+    ON iiq_ai_failure_ticket_comment (created);
+
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket_access (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id BIGINT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    granted TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_ticket_access UNIQUE (ticket_id, username),
+    CONSTRAINT fk_ai_failure_ticket_access_ticket
+        FOREIGN KEY (ticket_id)
+        REFERENCES iiq_ai_failure_ticket (id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_ai_failure_ticket_access_username
+    ON iiq_ai_failure_ticket_access (username);
