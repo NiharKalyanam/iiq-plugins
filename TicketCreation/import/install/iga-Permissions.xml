@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+
+  <SPRight name="TicketCreationView" displayName="Ticket Creation View">
+    <Description>Allows user to view ticket creation plugin</Description>
+  </SPRight>
+
+  <SPRight name="TicketCreationAdmin" displayName="Ticket Creation Admin">
+    <Description>Allows user to manage ticket creation plugin</Description>
+  </SPRight>
+
+  <!-- Lightweight capability granted automatically to @mentioned users -->
+  <Capability name="TicketCreationView" displayName="Ticket Creation View">
+    <Description>Grants access to view the Ticket Creation plugin. Assigned automatically when a user is @mentioned in a ticket comment.</Description>
+    <RightRefs>
+      <Reference class="sailpoint.object.SPRight" name="TicketCreationView"/>
+    </RightRefs>
+  </Capability>
+
+  <!-- Full admin capability for ticket admins -->
+  <Capability name="TicketCreationAdmin" displayName="Ticket Creation Admin">
+    <Description>Ticket Creation Plugin Admin Capability</Description>
+    <RightRefs>
+      <Reference class="sailpoint.object.SPRight" name="TicketCreationView"/>
+      <Reference class="sailpoint.object.SPRight" name="TicketCreationAdmin"/>
+    </RightRefs>
+  </Capability>
+
+</sailpoint>

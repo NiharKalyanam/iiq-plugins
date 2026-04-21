@@ -1,0 +1,17 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Identity PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Identity name="Ticket Creation Admin" workgroup="true">
+  <Attributes>
+    <Map>
+      <entry key="displayName" value="Ticket Creation Admin"/>
+      <entry key="name" value="Ticket Creation Admin"/>
+    </Map>
+  </Attributes>
+  <Capabilities>
+    <Reference class="sailpoint.object.Capability" name="TicketCreationAdmin"/>
+  </Capabilities>
+  <Description>Workgroup for Ticket Creation Plugin administrators</Description>
+  <Owner>
+    <Reference class="sailpoint.object.Identity" name="spadmin"/>
+  </Owner>
+</Identity>

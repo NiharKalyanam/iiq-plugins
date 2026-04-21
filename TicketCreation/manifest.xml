@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE Plugin PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Plugin displayName="Ticket Creation"
+        minSystemVersion="7.0"
+        name="TicketCreation"
+        rightRequired="TicketCreationView"
+        version="1.0">
+  <Attributes>
+    <Map>
+
+      <entry key="minUpgradableVersion" value="0.1"/>
+
+      <entry key="fullPage">
+        <value>
+          <FullPage title="TicketCreation"/>
+        </value>
+      </entry>
+
+      <entry key="restResources">
+        <value>
+          <List>
+            <String>com.sailpoint.ticketManagement.rest.TicketResource</String>
+            <String>com.sailpoint.ticketManagement.rest.TicketCommentResource</String>
+            <String>com.sailpoint.ticketManagement.rest.IdentitySearchResource</String>
+          </List>
+        </value>
+      </entry>
+
+      <entry key="settings">
+        <value>
+          <List>
+            <Setting dataType="boolean"
+                     helpText="Enable the Ticket Creation plugin"
+                     label="Enable Ticket Creation Plugin"
+                     name="ticketCreationEnabled"
+                     value="true"/>
+          </List>
+        </value>
+      </entry>
+
+      <entry key="snippets">
+        <value>
+          <List>
+            <Snippet regexPattern="/plugins/pluginPage.jsf.*">
+              <Scripts>
+                <String>ui/js/ticket-creation.js</String>
+              </Scripts>
+              <StyleSheets>
+                <String>ui/css/ticket-creation.css</String>
+              </StyleSheets>
+            </Snippet>
+          </List>
+        </value>
+      </entry>
+
+    </Map>
+  </Attributes>
+</Plugin>

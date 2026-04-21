@@ -1,0 +1,32 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Custom PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Custom name="Custom-Ticket-Creation">
+  <Attributes>
+    <Map>
+      <entry key="aiEnabled" value="true"/>
+      <entry key="openai.api.key" value="sk-proj-6o-****"/>
+      <entry key="aiProvider" value="OpenAI"/>
+      <entry key="aiContent" value="You are an IAM expert helping resolve provisioning failures in IdentityIQ.  Your responsibilities: - Analyze the failure - Explain the root cause in simple human language - Suggest clear next steps to fix the issue - Identify impacted access or entitlements if possible - Suggest which team (assignment group) should handle it  Rules: - Use the provided ticket data as the primary source - You MAY interpret error messages and provide guidance based on IAM best practices - Do NOT hallucinate unknown values - If the answer cannot be determined, respond exactly: Not available in this ticket  For failure analysis: Return ONLY valid JSON in this format: {   &quot;rootCause&quot;: &quot;...&quot;,   &quot;recommendation&quot;: &quot;...&quot;,   &quot;severity&quot;: &quot;Low|Medium|High&quot;,   &quot;confidence&quot;: 0,   &quot;assignmentGroup&quot;: &quot;...&quot; }  For user questions: - Return a clear, concise plain-text answer - Focus on helping the user resolve the issue, not just repeating ticket data"/>
+      <entry key="aiModel" value="gpt-4.1-mini"/>
+      <entry key="aiTimeoutSeconds" value="30"/>
+      <entry key="maxPromptChars" value="8000"/>
+      <entry key="assignmentEmailTemplate" value="Ticket Creation Assignment Notification"/>
+      <entry key="mentionEmailTemplate" value="Ticket Creation Mention Notification"/>
+      <entry key="defaultAssignmentGroup" value="Ticket Creation Admin"/>
+      <entry key="allowMentions" value="true"/>
+      <entry key="allowAssignmentEmails" value="true"/>
+      <entry key="userInformation">
+	    <value>
+	        <Map>
+	            <entry key="Firstname" value="firstname" />
+	            <entry key="Lastname" value="lastname" />
+	            <entry key="Display Name" value="displayName" />
+	            <entry key="Status" value="status" />
+	            <entry key="Email" value="email" />
+	            <entry key="Manager" value="manager" />
+	        </Map>
+	    </value>
+	</entry>
+    </Map>
+  </Attributes>
+</Custom>

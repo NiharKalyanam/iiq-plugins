@@ -1,0 +1,62 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE sailpoint PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+
+<sailpoint>
+
+  <DynamicScope name="Ticket Creation Admin">
+    <Description>Users with Ticket Creation Admin capability</Description>
+    <Selector>
+      <IdentitySelector>
+        <MatchExpression and="true">
+          <MatchTerm name="capabilities" value="TicketCreationAdmin"/>
+        </MatchExpression>
+      </IdentitySelector>
+    </Selector>
+  </DynamicScope>
+
+  <DynamicScope name="Ticket Creation View">
+    <Description>Users with Ticket Creation View capability (granted via @mention)</Description>
+    <Selector>
+      <IdentitySelector>
+        <MatchExpression and="true">
+          <MatchTerm name="capabilities" value="TicketCreationView"/>
+        </MatchExpression>
+      </IdentitySelector>
+    </Selector>
+  </DynamicScope>
+
+  <ImportAction name="merge">
+    <Configuration name="SystemConfiguration">
+      <Attributes>
+        <Map>
+          <entry key='quickLinkCategories'>
+            <value>
+              <List>
+                <QuickLinkCategory name="TicketCreation" messageKey="Ticket Creation" enabled="true" icon="quickLinkCategoryCustom"/>
+              </List>
+            </value>
+          </entry>
+        </Map>
+      </Attributes>
+    </Configuration>
+  </ImportAction>
+
+  <QuickLink action="external" category="TicketCreation" messageKey="Ticket Creation" name="Ticket Creation" ordering="1">
+    <Attributes>
+      <Map>
+        <entry key="url" value="plugins/pluginPage.jsf?pn=TicketCreation"/>
+      </Map>
+    </Attributes>
+    <QuickLinkOptions allowSelf="true">
+      <DynamicScopeRef>
+        <Reference class="sailpoint.object.DynamicScope" name="Ticket Creation Admin"/>
+      </DynamicScopeRef>
+    </QuickLinkOptions>
+    <QuickLinkOptions allowSelf="true">
+      <DynamicScopeRef>
+        <Reference class="sailpoint.object.DynamicScope" name="Ticket Creation View"/>
+      </DynamicScopeRef>
+    </QuickLinkOptions>
+  </QuickLink>
+
+</sailpoint>

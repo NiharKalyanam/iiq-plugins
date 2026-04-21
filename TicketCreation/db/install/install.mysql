@@ -1,0 +1,50 @@
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    source_type VARCHAR(100) NULL,
+    application_name VARCHAR(255) NULL,
+    identity_name VARCHAR(255) NULL,
+    operation VARCHAR(100) NULL,
+    error_message TEXT NULL,
+    ai_summary TEXT NULL,
+    status VARCHAR(50) NOT NULL,
+    assigned_to VARCHAR(255) NULL,
+    request_id VARCHAR(255) NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    resolved TIMESTAMP NULL DEFAULT NULL,
+    resolution_notes TEXT NULL,
+    PRIMARY KEY (id),
+    KEY idx_ai_failure_ticket_status (status),
+    KEY idx_ai_failure_ticket_application (application_name),
+    KEY idx_ai_failure_ticket_identity (identity_name),
+    KEY idx_ai_failure_ticket_request (request_id),
+    KEY idx_ai_failure_ticket_created (created)
+);
+
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket_comment (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    ticket_id BIGINT NOT NULL,
+    comment_by VARCHAR(255) NULL,
+    comment_text TEXT NULL,
+    created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    KEY idx_ai_failure_ticket_comment_ticket (ticket_id),
+    KEY idx_ai_failure_ticket_comment_created (created),
+    CONSTRAINT fk_ai_failure_ticket_comment_ticket
+        FOREIGN KEY (ticket_id)
+        REFERENCES iiq_ai_failure_ticket (id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS iiq_ai_failure_ticket_access (
+    id BIGINT NOT NULL AUTO_INCREMENT,
+    ticket_id BIGINT NOT NULL,
+    username VARCHAR(255) NOT NULL,
+    granted TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_ticket_access (ticket_id, username),
+    KEY idx_ai_failure_ticket_access_username (username),
+    CONSTRAINT fk_ai_failure_ticket_access_ticket
+        FOREIGN KEY (ticket_id)
+        REFERENCES iiq_ai_failure_ticket (id)
+        ON DELETE CASCADE
+);
